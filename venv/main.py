@@ -1,7 +1,6 @@
 import sys
 import csv
 import random  # Simuler des données (à remplacer par les vraies données des capteurs)
-
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
                              QLineEdit, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem)
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal
@@ -10,7 +9,6 @@ from PyQt5.QtGui import QPainter
 
 # --- Partie Backend : Simuler des données de capteurs ---
 class DataCollector(QThread):
-    
     data_collected = pyqtSignal(dict)
 
     def __init__(self):
@@ -41,7 +39,32 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Banc de Test - Brique en Terre Cuite")
-        self.resize(800, 600)
+        self.resize(900, 700)
+
+        
+
+        # Appliquer des styles globaux
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: #c2988f;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                text-align: center;
+                text-decoration: none;
+                font-size: 14px;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #b99188;
+            }
+            QLineEdit {
+                padding: 5px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                max-width: 150px;
+            }
+        """)
 
         # Widgets principaux
         self.central_widget = QWidget()
@@ -51,23 +74,36 @@ class MainWindow(QMainWindow):
 
         # Formulaire pour les paramètres
         self.param_form = QFormLayout()
+        self.param_form.setSpacing(15)  # Espacement entre les lignes
+
         self.input_temp = QLineEdit()
         self.input_wind = QLineEdit()
         self.input_humidity = QLineEdit()
         self.param_form.addRow("Température (°C):", self.input_temp)
         self.param_form.addRow("Vitesse du Vent (m/s):", self.input_wind)
         self.param_form.addRow("Humidité (%):", self.input_humidity)
-        self.layout.addLayout(self.param_form)
+
+        param_widget = QWidget()
+        param_layout = QVBoxLayout()
+        param_layout.addLayout(self.param_form)
+        param_widget.setLayout(param_layout)
+        self.layout.addWidget(param_widget)
 
         # Boutons de contrôle
         self.control_layout = QHBoxLayout()
         self.start_button = QPushButton("Démarrer")
         self.stop_button = QPushButton("Arrêter")
         self.export_button = QPushButton("Exporter les données")
+
         self.control_layout.addWidget(self.start_button)
         self.control_layout.addWidget(self.stop_button)
         self.control_layout.addWidget(self.export_button)
-        self.layout.addLayout(self.control_layout)
+
+        control_widget = QWidget()
+        control_layout = QVBoxLayout()
+        control_layout.addLayout(self.control_layout)
+        control_widget.setLayout(control_layout)
+        self.layout.addWidget(control_widget)
 
         # Tableau pour afficher les données
         self.data_table = QTableWidget()
@@ -101,6 +137,9 @@ class MainWindow(QMainWindow):
         self.chart_view = QChartView(self.chart)
         self.chart_view.setRenderHint(QPainter.Antialiasing)
         self.layout.addWidget(self.chart_view)
+
+        # Redimensionner le graphique
+        self.chart_view.setMinimumHeight(300)
 
         # Connecter les boutons
         self.start_button.clicked.connect(self.start_collecting)
