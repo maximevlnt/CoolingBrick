@@ -33,12 +33,26 @@ python -m venv venv
 python3 -m venv venv
 source venv/bin/activate
 ```
+### 3. Add QT Platform Variable (Optional for Specific Environments)
+If you are working with a graphical user interface (GUI) library that requires Qt (e.g., PyQt or PySide) and encounter issues related to the display.
+Follow these steps :
 
-### 3. Install Dependencies
+#### MAC/Linux
+
+Open the activiation script
+```bash
+nano venv/bin/activate
+```
+Add the following line at the end of the file
+```bash
+export QT_QPA_PLATFORM=xcb
+```
+
+### 4. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
-### 4. Running the Code
+### 5. Running the Code
 ```bash
 python main.py
 ```
