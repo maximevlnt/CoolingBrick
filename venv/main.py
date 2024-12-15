@@ -1,13 +1,23 @@
 import sys
 import csv
 import zipfile
+import statistics
 import random  # Simuler des données (à remplacer par les vraies données des capteurs)
+
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
                              QLineEdit, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
                              QComboBox, QDialog, QCheckBox, QDialogButtonBox, QScrollArea, QSplitter)
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QDir
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QPainter
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus.tables import TableStyle
+from datetime import datetime
+
 
 
 # --- Partie Backend : Simuler des données de capteurs ---
@@ -238,8 +248,7 @@ class MainWindow(QMainWindow):
             # Créer un fichier zip
             with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Exporter les données dans un fichier CSV
-                # Utiliser un chemin d'enregistrement explicite pour le CSV
-                csv_file_path = "temp_data.csv"  # Plutôt que d'utiliser QDir.tempPath()
+                csv_file_path = "temp_data.csv"
                 with open(csv_file_path, mode='w', newline='') as file:
                     writer = csv.DictWriter(file, fieldnames=["temperature", "pressure", "humidity"])
                     writer.writeheader()
@@ -254,6 +263,7 @@ class MainWindow(QMainWindow):
                 zipf.write(csv_file_path, "data.csv")
 
                 # Capturer et ajouter une image de chaque graphique
+                captured_graph_paths = []
                 for metric, chart_view in self.chart_views.items():
                     # Sauvegarder la taille d'origine du graphique
                     original_size = chart_view.size()
@@ -264,23 +274,24 @@ class MainWindow(QMainWindow):
 
                     # Créer un QPixmap avec la taille spécifiée
                     chart_pixmap = QPixmap(export_width, export_height)
-                    chart_pixmap.fill(Qt.transparent)  # Remplir l'arrière-plan avec la transparence (éliminer les bords noirs)
+                    chart_pixmap.fill(Qt.transparent)  # Remplir l'arrière-plan avec la transparence
 
                     # Redimensionner le graphique dans QChartView pour occuper l'espace complet
-                    chart_view.setRenderHint(QPainter.Antialiasing)  # Rendre avec anti-aliasing pour une meilleure qualité
-                    chart_view.setRenderHint(QPainter.SmoothPixmapTransform)  # Lissage de la transformation pour une image plus nette
+                    chart_view.setRenderHint(QPainter.Antialiasing)
+                    chart_view.setRenderHint(QPainter.SmoothPixmapTransform)
 
                     # Ajuster la taille temporairement pour l'exportation
                     chart_view.setFixedSize(export_width, export_height)
 
                     # Rendre le graphique dans le QPixmap
                     chart_painter = QPainter(chart_pixmap)
-                    chart_view.render(chart_painter)  # Redessiner le graphique dans le QPixmap
+                    chart_view.render(chart_painter)
                     chart_painter.end()
 
                     # Sauvegarder le graphique redimensionné dans une image PNG
                     image_path = f"{metric}_graph.png"
                     chart_pixmap.save(image_path, 'PNG')
+                    captured_graph_paths.append(image_path)
 
                     # Ajouter l'image du graphique dans le zip
                     zipf.write(image_path, f"{metric}_graph.png")
@@ -288,7 +299,165 @@ class MainWindow(QMainWindow):
                     # Rétablir la taille d'origine du graphique après l'exportation
                     chart_view.setFixedSize(original_size)
 
-            print(f"Les données et les graphiques ont été exportés dans le fichier zip: {file_path}")
+
+                # Générer un rapport PDF détaillé
+                pdf_report_path = "rapport_mesures.pdf"
+                self.generate_pdf_report(pdf_report_path)
+                
+                # Ajouter le PDF au zip
+                zipf.write(pdf_report_path, "rapport_mesures.pdf")
+
+                print(f"Les données et les graphiques ont été exportés dans le fichier zip: {file_path}")
+
+    def generate_pdf_report(self, pdf_path):
+        # Créer un PDF avec des statistiques détaillées
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+        styles = getSampleStyleSheet()
+        
+        # Éléments du rapport
+        elements = []
+        
+        # Titre du rapport
+        title = Paragraph("Rapport de Mesures du Banc de Test", styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 12))
+
+        # Date et heure de la mesure
+        from datetime import datetime
+        now = datetime.now()
+        date_time = Paragraph(f"Date et heure de la mesure : {now.strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal'])
+        elements.append(date_time)
+        elements.append(Spacer(1, 12))
+
+        # Informations supplémentaires
+        info_text = Paragraph(f"Durée de la mesure : {len(self.data)} secondes", styles['Normal'])
+        elements.append(info_text)
+        elements.append(Spacer(1, 12))
+
+        # Informations générales
+        if self.data:
+            # Calculs statistiques (comme précédemment)
+            temps_mesure = len(self.data)
+            stats = {
+                "temperature": {
+                    "moyenne": statistics.mean([d['temperature'] for d in self.data]),
+                    "min": min([d['temperature'] for d in self.data]),
+                    "max": max([d['temperature'] for d in self.data])
+                },
+                "pressure": {
+                    "moyenne": statistics.mean([d['pressure'] for d in self.data]),
+                    "min": min([d['pressure'] for d in self.data]),
+                    "max": max([d['pressure'] for d in self.data])
+                },
+                "humidity": {
+                    "moyenne": statistics.mean([d['humidity'] for d in self.data]),
+                    "min": min([d['humidity'] for d in self.data]),
+                    "max": max([d['humidity'] for d in self.data])
+                }
+            }
+
+            # Tableau des statistiques résumées
+            stats_data = [
+                ['Métrique', 'Moyenne', 'Minimum', 'Maximum'],
+                ['Température (°C)', 
+                f"{stats['temperature']['moyenne']:.2f}", 
+                f"{stats['temperature']['min']:.2f}", 
+                f"{stats['temperature']['max']:.2f}"],
+                ['Pression (hPa)', 
+                f"{stats['pressure']['moyenne']:.2f}", 
+                f"{stats['pressure']['min']:.2f}", 
+                f"{stats['pressure']['max']:.2f}"],
+                ['Humidité (%)', 
+                f"{stats['humidity']['moyenne']:.2f}", 
+                f"{stats['humidity']['min']:.2f}", 
+                f"{stats['humidity']['max']:.2f}"]
+            ]
+
+            stats_table = Table(stats_data)
+            stats_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#c2988f')),  # Fond gris clair pour la première ligne (titre)
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Texte en blanc pour les en-têtes
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Alignement du texte centré
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  # Police en gras pour les en-têtes
+                ('FONTSIZE', (0, 0), (-1, 0), 12),  # Taille de police des en-têtes
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),  # Espacement en bas des en-têtes
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f5e3d2')),  # Fond beige pour le reste du tableau
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#b99188')),  # Bordure noire et épaisse
+                ('LINEABOVE', (0, 0), (-1, 0), 1, colors.HexColor('#a27f6e')),  # Ligne au-dessus des en-têtes pour le séparateur
+                ('LINEBELOW', (0, -1), (-1, -1), 1, colors.HexColor('#a27f6e')),  # Ligne sous les données pour le séparateur
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#5a4e41')),  # Texte gris pour les autres lignes
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),  # Police Helvetica pour le reste des lignes
+                ('FONTSIZE', (0, 1), (-1, -1), 10),  # Taille de la police pour le reste des lignes
+                ('PADDING', (0, 0), (-1, -1), 8),  # Padding uniforme pour le tableau
+            ]))
+
+            
+            elements.append(Paragraph("Résumé des Statistiques", styles['Heading2']))
+            elements.append(stats_table)
+            elements.append(Spacer(1, 12))
+
+            # Nouveau tableau avec TOUTES les mesures
+            full_data = [
+                ['N°', 'Température (°C)', 'Pression (hPa)', 'Humidité (%)']
+            ]
+            for index, entry in enumerate(self.data, 1):
+                full_data.append([
+                    str(index),
+                    f"{entry['temperature']:.2f}", 
+                    f"{entry['pressure']:.2f}", 
+                    f"{entry['humidity']:.2f}"
+                ])
+
+            full_table = Table(full_data, repeatRows=1)
+            full_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#c2988f')),  # Fond gris clair pour la première ligne (titre)
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Texte en blanc pour les en-têtes
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Alignement du texte centré
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  # Police en gras pour les en-têtes
+                ('FONTSIZE', (0, 0), (-1, 0), 12),  # Taille de police des en-têtes
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),  # Espacement en bas des en-têtes
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f5e3d2')),  # Fond beige pour le reste du tableau
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#b99188')),  # Bordure noire et épaisse
+                ('LINEABOVE', (0, 0), (-1, 0), 1, colors.HexColor('#a27f6e')),  # Ligne au-dessus des en-têtes pour le séparateur
+                ('LINEBELOW', (0, -1), (-1, -1), 1, colors.HexColor('#a27f6e')),  # Ligne sous les données pour le séparateur
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#5a4e41')),  # Texte gris pour les autres lignes
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),  # Police Helvetica pour le reste des lignes
+                ('FONTSIZE', (0, 1), (-1, -1), 10),  # Taille de la police pour le reste des lignes
+                ('PADDING', (0, 0), (-1, -1), 8),  # Padding uniforme pour le tableau
+            ]))
+            
+            elements.append(Paragraph("Tableau Détaillé des Mesures", styles['Heading2']))
+            elements.append(full_table)
+            elements.append(Spacer(1, 12))
+
+            # Le reste du code reste identique (graphiques, etc.)
+            # Ajouter les graphiques au rapport
+            elements.append(Spacer(1, 12))
+            graphs_title = Paragraph("Graphiques des Mesures", styles['Heading2'])
+            elements.append(graphs_title)
+
+            # Ajouter chaque graphique
+            for metric in ['temperature', 'pressure', 'humidity']:
+                graph_path = f"{metric}_graph.png"
+                try:
+                    img = Image(graph_path, width=400, height=250)
+                    img.hAlign = 'CENTER'
+                    graph_label = Paragraph(f"Graphique de {metric.capitalize()}", styles['Heading3'])
+                    graph_label.hAlign = 'CENTER'
+                    elements.append(graph_label)
+                    elements.append(img)
+                    elements.append(Spacer(1, 12))
+                except Exception as e:
+                    print(f"Erreur lors de l'ajout du graphique {metric}: {e}")
+
+        else:
+            # Pas de données
+            no_data = Paragraph("Aucune donnée n'a été collectée.", styles['Normal'])
+            elements.append(no_data)
+
+        # Construire le PDF
+        doc.build(elements)
+
 
 
 
