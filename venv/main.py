@@ -1,15 +1,20 @@
 import sys
 import csv
+import time
+import random
+import json
+
 import zipfile
 import statistics
-import random  # Simuler des données (à remplacer par les vraies données des capteurs)
 
+
+import paho.mqtt.client as mqtt  # Bibliothèque MQTT
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
                              QLineEdit, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
-                             QComboBox, QDialog, QCheckBox, QDialogButtonBox, QScrollArea, QSplitter)
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QDir
+                             QScrollArea, QSplitter)
+from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
-from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QPainter
+from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -20,36 +25,161 @@ from datetime import datetime
 
 
 
-# --- Partie Backend : Simuler des données de capteurs ---
+
+
 class DataCollector(QThread):
     data_collected = pyqtSignal(dict)
 
-    def __init__(self):
+    def __init__(self, broker_address="172.20.10.2", topic="ESP8266/DHT11", port=1234):
         super().__init__()
         self.running = False
+        self.broker_address = broker_address
+        self.port = port
+        self.topic = topic
+        self.client = mqtt.Client()
+
+    def on_message(self, client, userdata, message):
+        payload = message.payload.decode('utf-8')
+        try:
+            data = json.loads(payload)
+            temperature = data.get('temperature', None)
+            humidity = data.get('humidity', None)
+
+            if temperature is not None and humidity is not None:
+                self.data_collected.emit({
+                    'temperature': temperature,
+                    'humidity': humidity,
+                    'pressure': random.uniform(950, 1050)
+                })
+        except json.JSONDecodeError:
+            print("Erreur : Impossible de décoder le message JSON")
 
     def run(self):
+        self.client.on_message = self.on_message
+        self.client.connect(self.broker_address, port=self.port)
+        self.client.subscribe(self.topic)
+        self.client.loop_start()
+        self.running = True
+
         while self.running:
-            # Simuler des données pour température, pression, humidité
-            data = {
-                "temperature": random.uniform(20, 30),
-                "pressure": random.uniform(950, 1050),
-                "humidity": random.uniform(30, 70),
-            }
-            self.data_collected.emit(data)
-            self.msleep(1000)  # Attendre 1 seconde entre les lectures
+            time.sleep(1)
+
+        self.client.loop_stop()
+        self.client.disconnect()
 
     def start_collecting(self):
-        self.running = True
         self.start()
 
     def stop_collecting(self):
         self.running = False
         self.wait()
 
+class HomeWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Menu Principal")
+        self.setGeometry(100, 100, 1000, 800)
+        self.setStyleSheet(self.get_stylesheet())
 
-# --- Partie Interface graphique ---
-class MainWindow(QMainWindow):
+        layout = QVBoxLayout()
+
+        title_label = QLabel("Banc de Test - Brique en Terre Cuite")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 24px; font-weight: bold; margin: 10px; padding: 10px; border: 2px solid #c2988f; border-radius: 10px;")
+        layout.addWidget(title_label)
+
+        protocol_button = QPushButton("Protocoles et Connexion")
+        protocol_button.setFixedSize(200, 50)
+        protocol_button.clicked.connect(self.open_protocol_window)
+        layout.addWidget(protocol_button, alignment=Qt.AlignCenter)
+
+        acquisition_button = QPushButton("Acquisition")
+        acquisition_button.setFixedSize(200, 50)
+        acquisition_button.clicked.connect(self.open_acquisition_window)
+        layout.addWidget(acquisition_button, alignment=Qt.AlignCenter)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+    def open_protocol_window(self):
+        self.protocol_window = ProtocolWindow()
+        self.protocol_window.show()
+        self.close()
+
+    def open_acquisition_window(self):
+        self.acquisition_window = AcquisitionWindow()
+        self.acquisition_window.show()
+        self.close()
+
+    def get_stylesheet(self):
+        return """
+        QPushButton {
+            background-color: #c2988f;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            font-size: 14px;
+            border-radius: 10px;
+        }
+        QPushButton:hover {
+            background-color: #a0796f;
+        }
+        QPushButton:pressed {
+            background-color: #8f6d63;
+        }
+        QLabel {
+            font-size: 14px;
+            margin: 10px;
+        }
+        QTableWidget {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        QHeaderView::section {
+            background-color: #e0a96d;
+            color: white;
+            padding: 4px;
+            font-size: 12px;
+        }
+        """
+
+class ProtocolWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Protocoles et Connexion")
+        self.setGeometry(100, 100, 1000, 800)
+        self.setStyleSheet(HomeWindow.get_stylesheet(self))
+
+        layout = QVBoxLayout()
+
+        protocol_text = QLabel(
+            "<b>Protocoles de fonctionnement :</b><br>"
+            "1. Assurez-vous que le banc de test est correctement installé et connecté à l'alimentation.<br>"
+            "2. Connectez la carte Arduino via USB et vérifiez la communication série.<br>"
+            "3. Lancez l'interface utilisateur pour commencer l'acquisition.<br>"
+        )
+        protocol_text.setStyleSheet("font-size: 14px; margin: 10px;")
+        protocol_text.setWordWrap(True)
+        layout.addWidget(protocol_text)
+
+        back_button = QPushButton("Retour au Menu")
+        back_button.setFixedSize(200, 50)
+        back_button.clicked.connect(self.open_home_window)
+        layout.addWidget(back_button, alignment=Qt.AlignCenter)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+    def open_home_window(self):
+        self.home_window = HomeWindow()
+        self.home_window.show()
+        self.close()
+
+class AcquisitionWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Banc de Test - Brique en Terre Cuite")
@@ -123,7 +253,8 @@ class MainWindow(QMainWindow):
         self.start_button.clicked.connect(self.start_collecting)
         self.stop_button.clicked.connect(self.stop_collecting)
         self.export_button.clicked.connect(self.export_data)
-        self.clear_button.clicked.connect(self.clear_data)
+        self.clear_button.clicked.connect(self.open_acquisition_window)
+        self.back_button.clicked.connect(self.open_home_window)
 
         # Backend
         self.collector = DataCollector()
@@ -500,11 +631,13 @@ class MainWindow(QMainWindow):
         self.stop_button = QPushButton("Arrêter")
         self.clear_button = QPushButton("Nettoyer")
         self.export_button = QPushButton("Exporter les données")
+        self.back_button = QPushButton("Retour au menu")
 
         self.control_layout.addWidget(self.start_button)
         self.control_layout.addWidget(self.stop_button)
         self.control_layout.addWidget(self.clear_button)
         self.control_layout.addWidget(self.export_button)
+        self.control_layout.addWidget(self.back_button)
 
         control_widget = QWidget()
         control_layout = QVBoxLayout()
@@ -586,11 +719,19 @@ class MainWindow(QMainWindow):
         
         # Ajouter le graphique à la disposition
         self.layout.addWidget(self.chart_view)
-        
-        
-# --- Lancer l'application ---
+
+    def open_home_window(self):
+        self.home_window = HomeWindow()
+        self.home_window.show()
+        self.close()
+
+    def open_acquisition_window(self):
+        self.acquisition_window = AcquisitionWindow()
+        self.acquisition_window.show()
+        self.close()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
+    home_window = HomeWindow()
+    home_window.show()
     sys.exit(app.exec_())

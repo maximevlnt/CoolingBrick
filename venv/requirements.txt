@@ -1,0 +1,4 @@
+PyQt5==5.15.9
+PyQtChart==5.15.6
+reportlab==4.0.4
+pao-mqtt==2.0.1
