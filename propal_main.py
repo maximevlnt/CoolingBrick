@@ -19,8 +19,9 @@ from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus.tables import TableStyle
+
 from datetime import datetime
 
 
@@ -739,87 +740,276 @@ class ParametreAcquisitionWindow(QMainWindow):
 class AcquisitionWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Banc de Test - Brique en Terre Cuite")
-        self.resize(1000, 1000)
+        self.setWindowTitle("Data Acquisition")
+        self.setGeometry(100, 100, 1000, 800)
+        self.setStyleSheet(self.get_stylesheet())
 
-          # Liste de toutes les métriques disponibles
-        self.available_metrics = ["temperature", "pressure", "humidity"]
-        self.current_metrics = self.available_metrics
+        # Main layout with margins
+        layout = QVBoxLayout()
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(10)
 
-
-        # Appliquer des styles globaux
-        self.setStyleSheet("""
-            QPushButton {
-                background-color: #c2988f;
-                color: white;
-                border: none;
-                padding: 10px 15px;
-                text-align: center;
-                text-decoration: none;
-                font-size: 14px;
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background-color: #b99188;
-            }
-            QPushButton:pressed {
-                background-color: #a27f6e; 
-            }
-            QLineEdit {
-                padding: 5px;
-                border: 1px solid #ccc;
-                border-radius: 5px;
-                max-width: 150px;
-            }
-        """)
-
-        # Widgets principaux
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.layout = QVBoxLayout()
-        self.central_widget.setLayout(self.layout)
-
-        # Formulaire pour les paramètres (identique à votre code précédent)
-        self.create_parameter_form()
+        # Header section
+        header_widget = QWidget()
+        header_layout = QHBoxLayout()
         
-        # Boutons de contrôle
-        self.create_control_buttons()
+        # Logo/Icon
+        logo_label = QLabel("📊")
+        logo_label.setStyleSheet("font-size: 32px;")
+        header_layout.addWidget(logo_label)
 
-        # Tableau pour afficher les données
-        self.create_data_table()
+        # Title section with subtitle
+        title_widget = QWidget()
+        title_layout = QVBoxLayout()
+        
+        title_label = QLabel("Data Acquisition")
+        title_label.setStyleSheet("font-size: 32px; font-weight: bold; color: #2D3748;")
+        
+        subtitle_label = QLabel("Real-time data collection and visualization")
+        subtitle_label.setStyleSheet("font-size: 16px; color: #718096;")
+        
+        title_layout.addWidget(title_label)
+        title_layout.addWidget(subtitle_label)
+        title_layout.setSpacing(5)
+        
+        title_widget.setLayout(title_layout)
+        header_layout.addWidget(title_widget)
+        header_layout.addStretch()
+        
+        header_widget.setLayout(header_layout)
+        layout.addWidget(header_widget)
 
-        # Graphique
-        self.create_chart_container()
+        # Parameters Card
+        params_card = QWidget()
+        params_card.setProperty("class", "card")
+        params_layout = QVBoxLayout()
+        params_layout.setSpacing(10)
+        params_layout.setContentsMargins(10, 20, 10, 25)
 
-        # --- Ajout d'un splitter vertical ---
-        self.splitter = QSplitter(Qt.Vertical)
+        params_title = QLabel("Sensor Parameters")
+        params_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
+        params_layout.addWidget(params_title)
 
-        # Ajouter le tableau de données et la zone des graphiques dans le splitter
-        self.splitter.addWidget(self.data_table)       # Tableau des valeurs
-        self.splitter.addWidget(self.chart_scroll_area)  # Graphiques (conteneur défilable)
+        # Parameter form
+        param_form = QHBoxLayout()
+        param_form.setSpacing(20)
 
-        # Ajuster les proportions initiales entre les widgets
-        self.splitter.setStretchFactor(0, 1)  # Le tableau (index 0) obtient moins d'espace
-        self.splitter.setStretchFactor(1, 3)  # Les graphiques (index 1) obtiennent plus d'espace
+        # Temperature input
+        temp_widget = QWidget()
+        temp_layout = QVBoxLayout()
+        temp_label = QLabel("Temperature (°C)")
+        temp_label.setStyleSheet("color: #718096; font-size: 14px;")
+        self.input_temp = QLineEdit()
+        temp_layout.addWidget(temp_label)
+        temp_layout.addWidget(self.input_temp)
+        temp_widget.setLayout(temp_layout)
+        param_form.addWidget(temp_widget)
 
-        # Ajouter le splitter à la mise en page principale
-        self.layout.addWidget(self.splitter)
+        # Pressure input
+        pressure_widget = QWidget()
+        pressure_layout = QVBoxLayout()
+        pressure_label = QLabel("Pressure (hPa)")
+        pressure_label.setStyleSheet("color: #718096; font-size: 14px;")
+        self.input_pressure = QLineEdit()
+        pressure_layout.addWidget(pressure_label)
+        pressure_layout.addWidget(self.input_pressure)
+        pressure_widget.setLayout(pressure_layout)
+        param_form.addWidget(pressure_widget)
 
+        # Humidity input
+        humidity_widget = QWidget()
+        humidity_layout = QVBoxLayout()
+        humidity_label = QLabel("Humidity (%)")
+        humidity_label.setStyleSheet("color: #718096; font-size: 14px;")
+        self.input_humidity = QLineEdit()
+        humidity_layout.addWidget(humidity_label)
+        humidity_layout.addWidget(self.input_humidity)
+        humidity_widget.setLayout(humidity_layout)
+        param_form.addWidget(humidity_widget)
 
-        # Connecter les boutons
-        self.start_button.clicked.connect(self.start_collecting)
-        self.stop_button.clicked.connect(self.stop_collecting)
-        self.export_button.clicked.connect(self.export_data)
-        self.clear_button.clicked.connect(self.open_acquisition_window)
-        self.back_button.clicked.connect(self.open_home_window)
+        params_layout.addLayout(param_form)
+        params_card.setLayout(params_layout)
+        layout.addWidget(params_card)
 
-        # Backend
+        # Control buttons
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+
+        self.start_button = QPushButton("Start")
+        self.stop_button = QPushButton("Stop")
+        self.clear_button = QPushButton("Clear")
+        self.export_button = QPushButton("Export Data")
+        self.back_button = QPushButton("Back to Menu")
+
+        for button in [self.start_button, self.stop_button, self.clear_button, 
+                      self.export_button, self.back_button]:
+            button.setFixedSize(150, 40)
+            button_layout.addWidget(button)
+
+        layout.addLayout(button_layout)
+
+        # Data display card
+        data_card = QWidget()
+        data_card.setProperty("class", "card")
+        data_layout = QVBoxLayout()
+        data_layout.setSpacing(10)
+        data_layout.setContentsMargins(10, 20, 10, 25)
+
+        data_title = QLabel("Collected Data")
+        data_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
+        data_layout.addWidget(data_title)
+
+        # Data table
+        self.data_table = QTableWidget()
+        self.data_table.setColumnCount(3)
+        self.data_table.setHorizontalHeaderLabels(["Temperature (°C)", "Pressure (hPa)", "Humidity (%)"])
+        self.data_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        data_layout.addWidget(self.data_table)
+
+        data_card.setLayout(data_layout)
+        layout.addWidget(data_card)
+
+        # Charts card
+        charts_card = QWidget()
+        charts_card.setProperty("class", "card")
+        charts_layout = QVBoxLayout()
+        charts_layout.setSpacing(10)
+        charts_layout.setContentsMargins(10, 20, 10, 25)
+
+        charts_title = QLabel("Real-time Charts")
+        charts_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
+        charts_layout.addWidget(charts_title)
+
+        self.chart_scroll_area = QScrollArea()
+        self.chart_container = QWidget()
+        self.chart_layout = QVBoxLayout()
+        self.chart_container.setLayout(self.chart_layout)
+        self.chart_scroll_area.setWidgetResizable(True)
+        self.chart_scroll_area.setWidget(self.chart_container)
+        charts_layout.addWidget(self.chart_scroll_area)
+
+        charts_card.setLayout(charts_layout)
+        layout.addWidget(charts_card)
+
+        # Footer
+        footer_label = QLabel("© 2025 - INSA Toulouse")
+        footer_label.setAlignment(Qt.AlignCenter)
+        footer_label.setStyleSheet("color: #A0AEC0; font-size: 12px;")
+        layout.addWidget(footer_label)
+
+        # Set up central widget
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+        # Initialize charts and connect buttons
+        self.initialize_charts()
+        self.connect_buttons()
+        
+        # Backend setup
         self.collector = DataCollector()
         self.collector.data_collected.connect(self.update_data)
-
-        # Stocker les données
         self.data = []
         self.time_counter = 0
+
+    def get_stylesheet(self):
+        return """
+        QWidget {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        QWidget[class="card"] {
+            background-color: white;
+            border-radius: 15px;
+            min-width: 300px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        
+        QPushButton {
+            background-color: #C17817;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 16px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        QPushButton:hover {
+            background-color: #D7891B;
+        }
+        
+        QPushButton:pressed {
+            background-color: #9C5F13;
+        }
+        
+        QMainWindow {
+            background-color: #fcfaf7;
+        }
+        
+        QLabel {
+            font-size: 14px;
+        }
+
+        QLineEdit {
+            padding: 8px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            background-color: white;
+            color: #2D3748;
+            font-size: 14px;
+        }
+
+        QLineEdit:focus {
+            border: 2px solid #C17817;
+            outline: none;
+        }
+
+        QTableWidget {
+            border: none;
+            background-color: white;
+            gridline-color: #E2E8F0;
+        }
+
+        QTableWidget::item {
+            padding: 8px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        QHeaderView::section {
+            background-color: #F7FAFC;
+            padding: 8px;
+            border: none;
+            border-bottom: 2px solid #E2E8F0;
+            font-weight: bold;
+            color: #2D3748;
+        }
+
+        QScrollArea {
+            border: none;
+            background-color: transparent;
+        }
+
+        QScrollBar:vertical {
+            border: none;
+            background: #E2E8F0;
+            width: 10px;
+            border-radius: 5px;
+        }
+
+        QScrollBar::handle:vertical {
+            background: #CBD5E0;
+            border-radius: 5px;
+        }
+
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {
+            border: none;
+            background: none;
+        }
+        """
 
 
     def start_collecting(self):
@@ -999,33 +1189,90 @@ class AcquisitionWindow(QMainWindow):
 
     def generate_pdf_report(self, pdf_path):
         # Créer un PDF avec des statistiques détaillées
-        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+        doc = SimpleDocTemplate(
+            pdf_path,
+            pagesize=letter,
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=50,
+            bottomMargin=50
+        )
+        
+        # Créer des styles personnalisés
         styles = getSampleStyleSheet()
         
-        # Éléments du rapport
+        # Style du titre principal
+        styles.add(ParagraphStyle(
+            name='CustomTitle',
+            parent=styles['Title'],
+            fontSize=24,
+            spaceAfter=30,
+            textColor=colors.HexColor('#2D3748'),
+            fontName='Helvetica-Bold'
+        ))
+        
+        # Style des sous-titres
+        styles.add(ParagraphStyle(
+            name='CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=18,
+            spaceBefore=20,
+            spaceAfter=20,
+            textColor=colors.HexColor('#2D3748'),
+            fontName='Helvetica-Bold'
+        ))
+        
+        # Style du texte normal
+        styles.add(ParagraphStyle(
+            name='CustomNormal',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.HexColor('#4A5568'),
+            fontName='Helvetica',
+            spaceBefore=6,
+            spaceAfter=6
+        ))
+        
+        # Elements du rapport
         elements = []
         
-        # Titre du rapport
-        title = Paragraph("Rapport de Mesures du Banc de Test", styles['Title'])
-        elements.append(title)
-        elements.append(Spacer(1, 12))
-
-        # Date et heure de la mesure
+        # En-tête avec logo
+        header = Table([[
+            Paragraph("Rapport de Mesures du Banc de Test", styles['CustomTitle'])
+        ]], colWidths=[None])
+        header.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(header)
+        elements.append(Spacer(1, 20))
+        
+        # Informations de base
         from datetime import datetime
         now = datetime.now()
-        date_time = Paragraph(f"Date et heure de la mesure : {now.strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal'])
-        elements.append(date_time)
-        elements.append(Spacer(1, 12))
+        
+        # Carte d'informations
+        info_data = [
+            [Paragraph("Date et heure :", styles['CustomNormal']),
+            Paragraph(now.strftime('%d/%m/%Y %H:%M:%S'), styles['CustomNormal'])],
+            [Paragraph("Durée de la mesure :", styles['CustomNormal']),
+            Paragraph(f"{len(self.data)} secondes", styles['CustomNormal'])]
+        ]
+        
+        info_table = Table(info_data, colWidths=[150, None])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F7FAFC')),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+            ('PADDING', (0, 0), (-1, -1), 12),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROUNDEDCORNERS', [10, 10, 10, 10]),
+        ]))
+        elements.append(info_table)
+        elements.append(Spacer(1, 30))
 
-        # Informations supplémentaires
-        info_text = Paragraph(f"Durée de la mesure : {len(self.data)} secondes", styles['Normal'])
-        elements.append(info_text)
-        elements.append(Spacer(1, 12))
-
-        # Informations générales
         if self.data:
-            # Calculs statistiques (comme précédemment)
-            temps_mesure = len(self.data)
+            # Calculs statistiques
             stats = {
                 "temperature": {
                     "moyenne": statistics.mean([d['temperature'] for d in self.data]),
@@ -1044,7 +1291,9 @@ class AcquisitionWindow(QMainWindow):
                 }
             }
 
-            # Tableau des statistiques résumées
+            elements.append(Paragraph("Résumé des Statistiques", styles['CustomHeading']))
+            
+            # Tableau des statistiques
             stats_data = [
                 ['Métrique', 'Moyenne', 'Minimum', 'Maximum'],
                 ['Température (°C)', 
@@ -1063,85 +1312,96 @@ class AcquisitionWindow(QMainWindow):
 
             stats_table = Table(stats_data)
             stats_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#c2988f')),  # Fond gris clair pour la première ligne (titre)
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Texte en blanc pour les en-têtes
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Alignement du texte centré
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  # Police en gras pour les en-têtes
-                ('FONTSIZE', (0, 0), (-1, 0), 12),  # Taille de police des en-têtes
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),  # Espacement en bas des en-têtes
-                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f5e3d2')),  # Fond beige pour le reste du tableau
-                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#b99188')),  # Bordure noire et épaisse
-                ('LINEABOVE', (0, 0), (-1, 0), 1, colors.HexColor('#a27f6e')),  # Ligne au-dessus des en-têtes pour le séparateur
-                ('LINEBELOW', (0, -1), (-1, -1), 1, colors.HexColor('#a27f6e')),  # Ligne sous les données pour le séparateur
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#5a4e41')),  # Texte gris pour les autres lignes
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),  # Police Helvetica pour le reste des lignes
-                ('FONTSIZE', (0, 1), (-1, -1), 10),  # Taille de la police pour le reste des lignes
-                ('PADDING', (0, 0), (-1, -1), 8),  # Padding uniforme pour le tableau
+                # En-tête
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#C17817')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                # Corps du tableau
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#FFFFFF')),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#4A5568')),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('PADDING', (0, 0), (-1, -1), 10),
+                # Coins arrondis pour le tableau entier
+                ('ROUNDEDCORNERS', [10, 10, 10, 10]),
             ]))
-
             
-            elements.append(Paragraph("Résumé des Statistiques", styles['Heading2']))
             elements.append(stats_table)
-            elements.append(Spacer(1, 12))
+            elements.append(Spacer(1, 30))
 
-            # Nouveau tableau avec TOUTES les mesures
-            full_data = [
-                ['N°', 'Température (°C)', 'Pression (hPa)', 'Humidité (%)']
-            ]
+            # Tableau détaillé
+            elements.append(Paragraph("Données Détaillées", styles['CustomHeading']))
+            
+            full_data = [['N°', 'Température (°C)', 'Pression (hPa)', 'Humidité (%)']]
             for index, entry in enumerate(self.data, 1):
                 full_data.append([
                     str(index),
-                    f"{entry['temperature']:.2f}", 
-                    f"{entry['pressure']:.2f}", 
+                    f"{entry['temperature']:.2f}",
+                    f"{entry['pressure']:.2f}",
                     f"{entry['humidity']:.2f}"
                 ])
 
-            full_table = Table(full_data, repeatRows=1)
-            full_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#c2988f')),  # Fond gris clair pour la première ligne (titre)
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Texte en blanc pour les en-têtes
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Alignement du texte centré
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  # Police en gras pour les en-têtes
-                ('FONTSIZE', (0, 0), (-1, 0), 12),  # Taille de police des en-têtes
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),  # Espacement en bas des en-têtes
-                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f5e3d2')),  # Fond beige pour le reste du tableau
-                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#b99188')),  # Bordure noire et épaisse
-                ('LINEABOVE', (0, 0), (-1, 0), 1, colors.HexColor('#a27f6e')),  # Ligne au-dessus des en-têtes pour le séparateur
-                ('LINEBELOW', (0, -1), (-1, -1), 1, colors.HexColor('#a27f6e')),  # Ligne sous les données pour le séparateur
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#5a4e41')),  # Texte gris pour les autres lignes
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),  # Police Helvetica pour le reste des lignes
-                ('FONTSIZE', (0, 1), (-1, -1), 10),  # Taille de la police pour le reste des lignes
-                ('PADDING', (0, 0), (-1, -1), 8),  # Padding uniforme pour le tableau
+            data_table = Table(full_data, repeatRows=1)
+            data_table.setStyle(TableStyle([
+                # En-tête
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#C17817')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                # Corps du tableau
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#4A5568')),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('PADDING', (0, 0), (-1, -1), 8),
+                # Style alterné pour les lignes
+                *[('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F7FAFC')) for i in range(2, len(full_data), 2)],
             ]))
             
-            elements.append(Paragraph("Tableau Détaillé des Mesures", styles['Heading2']))
-            elements.append(full_table)
-            elements.append(Spacer(1, 12))
+            elements.append(data_table)
+            elements.append(Spacer(1, 30))
 
-            # Le reste du code reste identique (graphiques, etc.)
-            # Ajouter les graphiques au rapport
-            elements.append(Spacer(1, 12))
-            graphs_title = Paragraph("Graphiques des Mesures", styles['Heading2'])
-            elements.append(graphs_title)
-
-            # Ajouter chaque graphique
+            # Graphiques
+            elements.append(Paragraph("Visualisation des Données", styles['CustomHeading']))
+            
             for metric in ['temperature', 'pressure', 'humidity']:
                 graph_path = f"{metric}_graph.png"
                 try:
-                    img = Image(graph_path, width=400, height=250)
+                    img = Image(graph_path, width=450, height=280)
                     img.hAlign = 'CENTER'
-                    graph_label = Paragraph(f"Graphique de {metric.capitalize()}", styles['Heading3'])
-                    graph_label.hAlign = 'CENTER'
-                    elements.append(graph_label)
+                    elements.append(Paragraph(f"Graphique - {metric.capitalize()}", styles['CustomNormal']))
                     elements.append(img)
-                    elements.append(Spacer(1, 12))
+                    elements.append(Spacer(1, 20))
                 except Exception as e:
                     print(f"Erreur lors de l'ajout du graphique {metric}: {e}")
 
         else:
-            # Pas de données
-            no_data = Paragraph("Aucune donnée n'a été collectée.", styles['Normal'])
-            elements.append(no_data)
+            elements.append(Paragraph(
+                "Aucune donnée n'a été collectée.",
+                styles['CustomNormal']
+            ))
+
+        # Pied de page
+        elements.append(Spacer(1, 30))
+        footer = Paragraph(
+            "© 2025 - INSA Toulouse",
+            ParagraphStyle(
+                'Footer',
+                parent=styles['Normal'],
+                fontSize=8,
+                textColor=colors.HexColor('#A0AEC0'),
+                alignment=1
+            )
+        )
+        elements.append(footer)
 
         # Construire le PDF
         doc.build(elements)
@@ -1276,6 +1536,13 @@ class AcquisitionWindow(QMainWindow):
         
         # Ajouter le graphique à la disposition
         self.layout.addWidget(self.chart_view)
+    
+    def connect_buttons(self):
+        self.start_button.clicked.connect(self.start_collecting)
+        self.stop_button.clicked.connect(self.stop_collecting)
+        self.export_button.clicked.connect(self.export_data)
+        self.clear_button.clicked.connect(self.clear_data)
+        self.back_button.clicked.connect(self.open_home_window)
 
     def open_home_window(self):
         self.home_window = HomeWindow()
