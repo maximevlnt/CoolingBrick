@@ -11,7 +11,7 @@ import statistics
 import paho.mqtt.client as mqtt  # Bibliothèque MQTT
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
                              QLineEdit, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
-                             QScrollArea, QSplitter, QSlider)
+                             QScrollArea, QSplitter, QSlider, QSizePolicy)
 from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap
@@ -563,17 +563,17 @@ class ParametreAcquisitionWindow(QMainWindow):
         params_layout.addWidget(params_title)
 
         # Temperature Slider
-        temp_label = QLabel("Temperature (°C) : 25°C")
-        temp_label.setStyleSheet("color: #718096; font-size: 14px; margin-bottom: 5px;")
-        temp_slider = QSlider(Qt.Horizontal)
-        temp_slider.setMinimum(20)
-        temp_slider.setMaximum(50)
-        temp_slider.setValue(25)
-        temp_slider.setTickPosition(QSlider.TicksBelow)
-        temp_slider.setTickInterval(5)
-        temp_slider.valueChanged.connect(lambda v: temp_label.setText(f"Température (°C) : {v}°C"))
-        params_layout.addWidget(temp_label)
-        params_layout.addWidget(temp_slider)
+        self.temp_label = QLabel("Temperature (°C) : 25°C")
+        self.temp_label.setStyleSheet("color: #718096; font-size: 14px; margin-bottom: 5px;")
+        self.temp_slider = QSlider(Qt.Horizontal)
+        self.temp_slider.setMinimum(20)
+        self.temp_slider.setMaximum(50)
+        self.temp_slider.setValue(25)
+        self.temp_slider.setTickPosition(QSlider.TicksBelow)
+        self.temp_slider.setTickInterval(5)
+        self.temp_slider.valueChanged.connect(lambda v: self.temp_label.setText(f"Température (°C) : {v}°C"))
+        params_layout.addWidget(self.temp_label)
+        params_layout.addWidget(self.temp_slider)
 
         # Wind Speed Slider
         wind_label = QLabel("Wind speed (km/h) : 10 km/h")
@@ -642,9 +642,13 @@ class ParametreAcquisitionWindow(QMainWindow):
         self.close()
 
     def open_acquisition_window(self):
-        self.acquisition_window = AcquisitionWindow()
+        temperature = self.get_temperature()
+        self.acquisition_window = AcquisitionWindow(temperature)
         self.acquisition_window.show()
         self.close()
+
+    def get_temperature(self):
+        return self.temp_slider.value()
 
     def get_stylesheet(self):
         return """
@@ -738,10 +742,370 @@ class ParametreAcquisitionWindow(QMainWindow):
         """
     
 class AcquisitionWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, temperature):
+        super().__init__()
+        self.chosen_temperature = temperature
+        self.init_ui(temperature)
+
+    def init_ui(self, temperature):
         super().__init__()
         self.setWindowTitle("Data Acquisition")
         self.setGeometry(100, 100, 1000, 800)
+        self.setStyleSheet(self.get_stylesheet())
+
+        # Main layout with margins
+        layout = QVBoxLayout()
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(10)
+        
+        # Title section with subtitle
+        title_widget = QWidget()
+        title_layout = QVBoxLayout()
+
+        # Logo/Icon
+        logo_label = QLabel("📊")
+        logo_label.setStyleSheet("font-size: 32px;")
+        title_layout.addWidget(logo_label)
+
+        title_label = QLabel("Data Acquisition")
+        title_label.setStyleSheet("font-size: 32px; font-weight: bold; color: #2D3748;")
+
+        subtitle_label = QLabel("Real-time data collection and visualization")
+        subtitle_label.setStyleSheet("font-size: 16px; color: #718096;")
+
+        title_layout.addWidget(title_label)
+        title_layout.addWidget(subtitle_label)
+        title_layout.setSpacing(5)
+
+        title_widget.setLayout(title_layout)
+
+        # Temperature display section
+        temperature_widget = QWidget()
+        temperature_layout = QHBoxLayout()
+
+        temperature_label = QLabel("Température à l'entrée de la brique :")
+        temperature_label.setStyleSheet("font-size: 16px; color: #2D3748;")
+
+        self.current_temperature_label = QLabel(f"{temperature}°C")
+        self.current_temperature_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #E53E3E;")
+
+        temperature_layout.addWidget(temperature_label)
+        temperature_layout.addWidget(self.current_temperature_label)
+        temperature_layout.addStretch()  # Pushes everything to the left
+        temperature_widget.setLayout(temperature_layout)
+
+        # Combine title and temperature sections in a single horizontal layout
+        header_layout = QHBoxLayout()
+        header_layout.addWidget(title_widget)
+        header_layout.addStretch()  # Adds spacing between title and temperature
+        header_layout.addWidget(temperature_widget)
+
+        # Add the header layout to the main widget
+        header_widget = QWidget()
+        header_widget.setLayout(header_layout)
+
+        layout.addWidget(header_widget)
+
+        # Charts card
+        charts_card = QWidget()
+        charts_card.setProperty("class", "card")
+        charts_layout = QVBoxLayout()
+        charts_layout.setSpacing(10)
+        charts_layout.setContentsMargins(10, 20, 10, 25)
+
+        charts_title = QLabel("Graphique de température en temps réel")
+        charts_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
+        charts_layout.addWidget(charts_title)
+
+        self.chart_view = QChartView()
+        self.chart_view.setRenderHint(QPainter.Antialiasing)
+        self.chart_view.setMinimumHeight(300)
+        charts_layout.addWidget(self.chart_view)
+
+        charts_card.setLayout(charts_layout)
+        layout.addWidget(charts_card)
+
+        # Control buttons
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+
+        self.back_button = QPushButton("Back to Menu")
+        self.start_button = QPushButton("Start")
+
+        for button in [self.back_button, self.start_button]:
+            button.setFixedSize(200, 50)
+            button_layout.addWidget(button)
+
+        layout.addLayout(button_layout)
+
+        # Footer
+        footer_label = QLabel("© 2025 - INSA Toulouse")
+        footer_label.setAlignment(Qt.AlignCenter)
+        footer_label.setStyleSheet("color: #A0AEC0; font-size: 12px;")
+        layout.addWidget(footer_label)
+
+        # Set up central widget
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+        # Initialize charts and connect buttons
+        self.initialize_chart()
+        self.connect_buttons()
+        
+        # Backend setup
+        self.collector = DataCollector()
+        self.collector.data_collected.connect(self.update_data)
+        self.data = []
+        self.time_counter = 0
+
+    def get_stylesheet(self):
+        return """
+        QWidget {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        QWidget[class="card"] {
+            background-color: white;
+            border-radius: 15px;
+            min-width: 300px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        
+        QPushButton {
+            background-color: #C17817;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 16px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        QPushButton:hover {
+            background-color: #D7891B;
+        }
+        
+        QPushButton:pressed {
+            background-color: #9C5F13;
+        }
+        
+        QMainWindow {
+            background-color: #fcfaf7;
+        }
+        
+        QLabel {
+            font-size: 14px;
+        }
+
+        QLineEdit {
+            padding: 8px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            background-color: white;
+            color: #2D3748;
+            font-size: 14px;
+        }
+
+        QLineEdit:focus {
+            border: 2px solid #C17817;
+            outline: none;
+        }
+
+        QTableWidget {
+            border: none;
+            background-color: white;
+            gridline-color: #E2E8F0;
+        }
+
+        QTableWidget::item {
+            padding: 8px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        QHeaderView::section {
+            background-color: #F7FAFC;
+            padding: 8px;
+            border: none;
+            border-bottom: 2px solid #E2E8F0;
+            font-weight: bold;
+            color: #2D3748;
+        }
+
+        QScrollArea {
+            border: none;
+            background-color: transparent;
+        }
+
+        QScrollBar:vertical {
+            border: none;
+            background: #E2E8F0;
+            width: 10px;
+            border-radius: 5px;
+        }
+
+        QScrollBar::handle:vertical {
+            background: #CBD5E0;
+            border-radius: 5px;
+        }
+
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {
+            border: none;
+            background: none;
+        }
+        """
+
+    def open_acquisition_after_brick_window(self):
+        self.acquisition_after_brick_window = AcquisitionWindowAfterBrick()
+        self.acquisition_after_brick_window.show()
+        #self.close()
+      
+    def initialize_chart(self):
+        # Créer la série pour la température
+        self.temperature_series = QLineSeries()
+        self.temperature_series.setName("Temperature in the pipe")
+        self.temperature_series.setPen(QPen(QColor(255, 0, 0), 2))
+
+        # Créer la ligne pour la température choisie
+        self.chosen_temp_series = QLineSeries()
+        self.temperature_series.setName("Wanted Temperature")
+        self.chosen_temp_series.setPen(QPen(QColor(0, 0, 255), 2, Qt.DashLine))
+
+        # Créer le graphique
+        chart = QChart()
+        chart.setTitle("Temperature (°C)")
+        chart.addSeries(self.temperature_series)
+        chart.addSeries(self.chosen_temp_series)
+
+        # Créer les axes
+        axis_x = QValueAxis()
+        axis_x.setTitleText("Time (s)")
+        axis_x.setRange(0, 100)  # Plage du temps à ajuster au besoin
+        chart.addAxis(axis_x, Qt.AlignBottom)
+
+        axis_y = QValueAxis()
+        axis_y.setTitleText("Température (°C)")
+        axis_y.setRange(15, 55)  # Ajustez cette plage selon vos besoins
+        chart.addAxis(axis_y, Qt.AlignLeft)
+
+        chart.setAxisX(axis_x, self.temperature_series)
+        chart.setAxisY(axis_y, self.temperature_series)
+        chart.setAxisX(axis_x, self.chosen_temp_series)
+        chart.setAxisY(axis_y, self.chosen_temp_series)
+
+        # Ajouter la ligne de température choisie
+        self.chosen_temp_series.append(0, self.chosen_temperature)
+        self.chosen_temp_series.append(100, self.chosen_temperature)
+
+        # Définir le graphique pour la vue
+        self.chart_view.setChart(chart)
+
+
+    def update_data(self, new_data):
+        self.data.append(new_data)
+        # Ajouter les nouvelles données au tableau
+        row_position = self.data_table.rowCount()
+        self.data_table.insertRow(row_position)
+        self.data_table.setItem(row_position, 0, QTableWidgetItem(f"{new_data['temperature']:.2f}"))
+        self.data_table.setItem(row_position, 1, QTableWidgetItem(f"{new_data['pressure']:.2f}"))
+        self.data_table.setItem(row_position, 2, QTableWidgetItem(f"{new_data['humidity']:.2f}"))
+        self.data_table.scrollToBottom()
+
+        # Ajouter les nouvelles données à chaque série
+        for metric in self.metrics:
+            self.series_dict[metric].append(self.time_counter, new_data[metric])
+
+        # Mettre à jour la plage des axes X pour tous les graphiques
+        for chart_view in self.chart_views.values():
+            chart = chart_view.chart()
+            min_time = max(self.time_counter - 50000, 0)
+            max_time = self.time_counter
+            chart.axisX().setRange(min_time, max_time)
+
+        # Incrémenter le compteur de temps
+        self.time_counter += 1
+
+
+    def create_parameter_form(self):
+        # Formulaire pour les paramètres
+        self.param_form = QFormLayout()
+        self.param_form.setSpacing(15)
+
+        h_layout = QHBoxLayout()
+
+        self.input_temp = QLineEdit()
+        self.input_pressure = QLineEdit()
+        self.input_humidity = QLineEdit()
+
+        label_temp = QLabel("Température (°C) :")
+        label_pressure = QLabel("Pression (hPa) :")
+        label_humidity = QLabel("Humidité (%) :")
+
+        h_layout.addWidget(label_temp)
+        h_layout.addWidget(self.input_temp)
+        h_layout.addWidget(label_pressure)
+        h_layout.addWidget(self.input_pressure)
+        h_layout.addWidget(label_humidity)
+        h_layout.addWidget(self.input_humidity)
+
+        self.param_form.addRow(h_layout)
+
+        param_widget = QWidget()
+        param_layout = QVBoxLayout()
+        param_layout.addLayout(self.param_form)
+        param_widget.setLayout(param_layout)
+        self.layout.addWidget(param_widget)
+
+    def create_data_table(self):
+        # Tableau pour afficher les données
+        self.data_table = QTableWidget()
+        self.data_table.setColumnCount(3)
+        self.data_table.setHorizontalHeaderLabels(["Température (°C)", "Pression (hPa)", "Humidité (%)"])
+        self.data_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        self.layout.addWidget(self.data_table)
+
+    def create_chart_container(self):
+        # Créer un conteneur de défilement pour les graphiques
+        self.chart_scroll_area = QScrollArea()
+        self.chart_container = QWidget()
+        self.chart_layout = QVBoxLayout()
+        self.chart_container.setLayout(self.chart_layout)
+        
+        self.chart_scroll_area.setWidgetResizable(True)
+        self.chart_scroll_area.setWidget(self.chart_container)
+        
+        self.layout.addWidget(self.chart_scroll_area)
+        
+        # Initialiser les dictionnaires pour les graphiques
+        self.chart_views = {}
+        self.series_dict = {}
+        
+        # Créer le premier graphique initial
+        self.initialize_charts()
+    
+    def connect_buttons(self):
+        self.start_button.clicked.connect(self.open_acquisition_after_brick_window)
+        self.back_button.clicked.connect(self.open_home_window)
+
+    def open_home_window(self):
+        self.home_window = HomeWindow()
+        self.home_window.show()
+        self.close()
+
+    def open_acquisition_window(self):
+        self.acquisition_window = AcquisitionWindow()
+        self.acquisition_window.show()
+        self.close()
+
+class AcquisitionWindowAfterBrick(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Data Acquisition")
+        self.setGeometry(100, 100, 1500, 1200)
         self.setStyleSheet(self.get_stylesheet())
 
         # Main layout with margins
@@ -779,97 +1143,32 @@ class AcquisitionWindow(QMainWindow):
         header_widget.setLayout(header_layout)
         layout.addWidget(header_widget)
 
-        # Parameters Card
-        params_card = QWidget()
-        params_card.setProperty("class", "card")
-        params_layout = QVBoxLayout()
-        params_layout.setSpacing(10)
-        params_layout.setContentsMargins(10, 20, 10, 25)
+        # Create a horizontal splitter for data tables and charts
+        content_splitter = QSplitter(Qt.Horizontal)
 
-        params_title = QLabel("Sensor Parameters")
-        params_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
-        params_layout.addWidget(params_title)
+        # Left side: Two data cards
+        left_widget = QWidget()
+        left_layout = QVBoxLayout()
 
-        # Parameter form
-        param_form = QHBoxLayout()
-        param_form.setSpacing(20)
+        # Update the first table (index 0)
+        # experiment_window.update_data(0, {'temperature': 26.0, 'pressure': 1014.0, 'humidity': 51.0})
 
-        # Temperature input
-        temp_widget = QWidget()
-        temp_layout = QVBoxLayout()
-        temp_label = QLabel("Temperature (°C)")
-        temp_label.setStyleSheet("color: #718096; font-size: 14px;")
-        self.input_temp = QLineEdit()
-        temp_layout.addWidget(temp_label)
-        temp_layout.addWidget(self.input_temp)
-        temp_widget.setLayout(temp_layout)
-        param_form.addWidget(temp_widget)
+        # Update the second table (index 1)
+        # experiment_window.update_data(1, {'temperature': 27.0, 'pressure': 1015.0, 'humidity': 52.0})
 
-        # Pressure input
-        pressure_widget = QWidget()
-        pressure_layout = QVBoxLayout()
-        pressure_label = QLabel("Pressure (hPa)")
-        pressure_label.setStyleSheet("color: #718096; font-size: 14px;")
-        self.input_pressure = QLineEdit()
-        pressure_layout.addWidget(pressure_label)
-        pressure_layout.addWidget(self.input_pressure)
-        pressure_widget.setLayout(pressure_layout)
-        param_form.addWidget(pressure_widget)
+        # First data card
+        data_card_before_brick = self.create_data_card("Collected Data Before Brick")
+        left_layout.addWidget(data_card_before_brick)
 
-        # Humidity input
-        humidity_widget = QWidget()
-        humidity_layout = QVBoxLayout()
-        humidity_label = QLabel("Humidity (%)")
-        humidity_label.setStyleSheet("color: #718096; font-size: 14px;")
-        self.input_humidity = QLineEdit()
-        humidity_layout.addWidget(humidity_label)
-        humidity_layout.addWidget(self.input_humidity)
-        humidity_widget.setLayout(humidity_layout)
-        param_form.addWidget(humidity_widget)
+        # Second data card
+        data_card_after_brick = self.create_data_card("Collected Data After Brick")
+        left_layout.addWidget(data_card_after_brick)
+        left_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        params_layout.addLayout(param_form)
-        params_card.setLayout(params_layout)
-        layout.addWidget(params_card)
+        left_widget.setLayout(left_layout)
+        content_splitter.addWidget(left_widget)
 
-        # Control buttons
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(20)
-
-        self.start_button = QPushButton("Start")
-        self.stop_button = QPushButton("Stop")
-        self.clear_button = QPushButton("Clear")
-        self.export_button = QPushButton("Export Data")
-        self.back_button = QPushButton("Back to Menu")
-
-        for button in [self.start_button, self.stop_button, self.clear_button, 
-                      self.export_button, self.back_button]:
-            button.setFixedSize(150, 40)
-            button_layout.addWidget(button)
-
-        layout.addLayout(button_layout)
-
-        # Data display card
-        data_card = QWidget()
-        data_card.setProperty("class", "card")
-        data_layout = QVBoxLayout()
-        data_layout.setSpacing(10)
-        data_layout.setContentsMargins(10, 20, 10, 25)
-
-        data_title = QLabel("Collected Data")
-        data_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
-        data_layout.addWidget(data_title)
-
-        # Data table
-        self.data_table = QTableWidget()
-        self.data_table.setColumnCount(3)
-        self.data_table.setHorizontalHeaderLabels(["Temperature (°C)", "Pressure (hPa)", "Humidity (%)"])
-        self.data_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        data_layout.addWidget(self.data_table)
-
-        data_card.setLayout(data_layout)
-        layout.addWidget(data_card)
-
-        # Charts card
+        # Right side: Charts card
         charts_card = QWidget()
         charts_card.setProperty("class", "card")
         charts_layout = QVBoxLayout()
@@ -889,7 +1188,36 @@ class AcquisitionWindow(QMainWindow):
         charts_layout.addWidget(self.chart_scroll_area)
 
         charts_card.setLayout(charts_layout)
-        layout.addWidget(charts_card)
+        charts_card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+# TODO:
+# affichage de 2 courbes sur les graphes
+# essayer avec des fausses données random
+# voir comment exporter
+
+        content_splitter.addWidget(charts_card)
+
+        # Set initial sizes for the splitter
+        content_splitter.setSizes([int(self.width() * 0.4), int(self.width() * 0.6)])
+        content_splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        layout.addWidget(content_splitter)
+
+        # Control buttons
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+
+        self.start_button = QPushButton("Start")
+        self.stop_button = QPushButton("Stop")
+        self.clear_button = QPushButton("Clear")
+        self.export_button = QPushButton("Export Data")
+        self.back_button = QPushButton("Close")
+
+        for button in [self.back_button, self.export_button, 
+                        self.clear_button, self.stop_button, self.start_button]:
+            button.setFixedSize(150, 40)
+            button_layout.addWidget(button)
+
+        layout.addLayout(button_layout)
 
         # Footer
         footer_label = QLabel("© 2025 - INSA Toulouse")
@@ -1011,6 +1339,34 @@ class AcquisitionWindow(QMainWindow):
         }
         """
 
+    def create_data_card(self, title):
+        data_card = QWidget()
+        data_card.setProperty("class", "card")
+        data_layout = QVBoxLayout()
+        data_layout.setSpacing(10)
+        data_layout.setContentsMargins(10, 20, 10, 25)
+
+        data_title = QLabel(title)
+        data_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
+        data_layout.addWidget(data_title)
+
+        data_table = QTableWidget()
+        data_table.setColumnCount(3)
+        data_table.setHorizontalHeaderLabels(["Temperature (°C)", "Pressure (hPa)", "Humidity (%)"])
+        data_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        
+        initial_temperature = 25.5
+        initial_pressure = 1013.25
+        initial_humidity = 50.0
+
+        data_table.insertRow(0)
+        data_table.setItem(0, 0, QTableWidgetItem(f"{initial_temperature:.2f}"))
+        data_table.setItem(0, 1, QTableWidgetItem(f"{initial_pressure:.2f}"))
+        data_table.setItem(0, 2, QTableWidgetItem(f"{initial_humidity:.2f}"))
+
+        data_layout.addWidget(data_table)
+        data_card.setLayout(data_layout)
+        return data_card
 
     def start_collecting(self):
         self.collector.start_collecting()
@@ -1450,11 +1806,11 @@ class AcquisitionWindow(QMainWindow):
         self.export_button = QPushButton("Exporter les données")
         self.back_button = QPushButton("Retour au menu")
 
-        self.control_layout.addWidget(self.start_button)
-        self.control_layout.addWidget(self.stop_button)
-        self.control_layout.addWidget(self.clear_button)
-        self.control_layout.addWidget(self.export_button)
         self.control_layout.addWidget(self.back_button)
+        self.control_layout.addWidget(self.export_button)
+        self.control_layout.addWidget(self.clear_button)
+        self.control_layout.addWidget(self.stop_button)
+        self.control_layout.addWidget(self.start_button)
 
         control_widget = QWidget()
         control_layout = QVBoxLayout()
@@ -1545,8 +1901,8 @@ class AcquisitionWindow(QMainWindow):
         self.back_button.clicked.connect(self.open_home_window)
 
     def open_home_window(self):
-        self.home_window = HomeWindow()
-        self.home_window.show()
+        # self.home_window = HomeWindow()
+        # self.home_window.show()
         self.close()
 
     def open_acquisition_window(self):
