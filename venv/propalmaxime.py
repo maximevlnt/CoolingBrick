@@ -802,7 +802,7 @@ class AcquisitionWindow(QMainWindow):
         title_label = QLabel("Data Acquisition")
         title_label.setStyleSheet("font-size: 32px; font-weight: bold; color: #2D3748;")
 
-        subtitle_label = QLabel("Real-time data collection and visualization")
+        subtitle_label = QLabel("Real-time data collection and visualisation")
         subtitle_label.setStyleSheet("font-size: 16px; color: #718096;")
 
         title_layout.addWidget(title_label)
@@ -1020,7 +1020,7 @@ class AcquisitionWindow(QMainWindow):
         chart.addAxis(axis_x, Qt.AlignBottom)
 
         axis_y = QValueAxis()
-        axis_y.setTitleText("Température (°C)")
+        axis_y.setTitleText("Temperature (°C)")
         axis_y.setRange(15, 55)  # Ajustez cette plage selon vos besoins
         chart.addAxis(axis_y, Qt.AlignLeft)
 
@@ -1058,9 +1058,9 @@ class AcquisitionWindow(QMainWindow):
         self.input_pressure = QLineEdit()
         self.input_humidity = QLineEdit()
 
-        label_temp = QLabel("Température (°C) :")
-        label_pressure = QLabel("Pression (hPa) :")
-        label_humidity = QLabel("Humidité (%) :")
+        label_temp = QLabel("Temperature (°C):")
+        label_pressure = QLabel("Wind speed (km/h):")
+        label_humidity = QLabel("Humidity (%):")
 
         h_layout.addWidget(label_temp)
         h_layout.addWidget(self.input_temp)
@@ -1081,7 +1081,7 @@ class AcquisitionWindow(QMainWindow):
         # Tableau pour afficher les données
         self.data_table = QTableWidget()
         self.data_table.setColumnCount(3)
-        self.data_table.setHorizontalHeaderLabels(["Température (°C)", "Pression (hPa)", "Humidité (%)"])
+        self.data_table.setHorizontalHeaderLabels(["Temperature (°C)", "Wind speed (km/h)", "Humidity (%)"])
         self.data_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         self.layout.addWidget(self.data_table)
@@ -1147,7 +1147,7 @@ class AcquisitionWindowAfterBrick(QMainWindow):
         title_label = QLabel("Data Acquisition")
         title_label.setStyleSheet("font-size: 32px; font-weight: bold; color: #2D3748;")
         
-        subtitle_label = QLabel("Real-time data collection and visualization")
+        subtitle_label = QLabel("Real-time data collection and visualisation")
         subtitle_label.setStyleSheet("font-size: 16px; color: #718096;")
         
         title_layout.addWidget(title_label)
