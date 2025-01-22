@@ -30,7 +30,7 @@ from datetime import datetime
 class DataCollector(QThread):
     data_collected = pyqtSignal(dict)
 
-    def __init__(self, broker_address="172.20.10.2", topic="ESP8266/DHT11", port=1234):
+    def __init__(self, broker_address="172.20.10.2", topic="ESP1/data", port=1234):
         super().__init__()
         self.running = False
         self.broker_address = broker_address
