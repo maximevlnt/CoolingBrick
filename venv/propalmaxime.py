@@ -325,9 +325,10 @@ class ProtocolWindow(QMainWindow):
 
         # Steps for Installation Protocol
         steps = [
-            "1. Make sure the test bench is properly installed and connected to power.",
-            "2. Connect the Arduino board via USB and check the serial communication.",
-            "3. Launch the user interface to begin acquisition."
+            "1. Make sure the test bench is properly installed.",
+            "2. Make sure that the ESP acquisition cards are powered.",
+            "3. Make sure that the sensors are properly connected to the ESP acquisition cards.",
+            "4. Start the configuration of the data acquisition."
         ]
 
         for step in steps:
@@ -357,10 +358,10 @@ class ProtocolWindow(QMainWindow):
 
         # Protocol Steps for Characterisation
         protocol = [
-            "1. Humidify brick",
-            "2. Put brick",
-            "3. Close it tightly",
-            "4. Start acquisition"
+            "1. Set brick humidity level from 0% (completely dry) to 100% (fully water saturated) based on the characterisation requirements.",
+            "2. Position the brick in the center of the test chamber.",
+            "3. Ensure complete chamber sealing by firmly closing all latches.",
+            "4. Configure acquisition parameters and initiate the data collection sequence"
         ]
 
         for step in protocol:
@@ -465,11 +466,6 @@ class ProtocolWindow(QMainWindow):
         }
         """
 
-    def open_home_window(self):
-        self.home_window = HomeWindow()
-        self.home_window.show()
-        self.close() 
-
 class ParametreAcquisitionWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -524,8 +520,8 @@ class ParametreAcquisitionWindow(QMainWindow):
         protocol_layout.addWidget(protocol_title)
 
         steps = [
-            "1. Make sure the slider values are correct.",
-            "2. Check that the ESP8266 acquisition and control boards are powered.",
+            "1. Make sure the slider values the one wanted for the characterisation.",
+            "2. Check that the ESP acquisition cards are powered.",
             "3. Launch the acquisition interface when ready."
         ]
 
@@ -551,7 +547,7 @@ class ParametreAcquisitionWindow(QMainWindow):
         params_layout.addWidget(params_title)
 
         # Temperature Slider
-        self.temp_label = QLabel("Temperature (°C) : 25°C")
+        self.temp_label = QLabel("Temperature (°C): 25°C")
         self.temp_label.setStyleSheet("color: #718096; font-size: 14px; margin-bottom: 5px;")
         self.temp_slider = QSlider(Qt.Horizontal)
         self.temp_slider.setMinimum(20)
@@ -559,35 +555,41 @@ class ParametreAcquisitionWindow(QMainWindow):
         self.temp_slider.setValue(25)
         self.temp_slider.setTickPosition(QSlider.TicksBelow)
         self.temp_slider.setTickInterval(5)
-        self.temp_slider.valueChanged.connect(lambda v: self.temp_label.setText(f"Température (°C) : {v}°C"))
+        self.temp_slider.setSingleStep(5)
+        self.temp_slider.setPageStep(5)
+        self.temp_slider.valueChanged.connect(self.on_slider_value_changed_temp)
         params_layout.addWidget(self.temp_label)
         params_layout.addWidget(self.temp_slider)
 
         # Wind Speed Slider
-        self.wind_label = QLabel("Wind speed (km/h) : 10 km/h")
+        self.wind_label = QLabel("Wind speed (km/h): 10 km/h")
         self.wind_label.setStyleSheet("color: #718096; font-size: 14px; margin-bottom: 5px; margin-top: 20px;")
         self.wind_slider = QSlider(Qt.Horizontal)
         self.wind_slider.setMinimum(0)
-        self.wind_slider.setMaximum(60)
+        self.wind_slider.setMaximum(35)
         self.wind_slider.setValue(10)
         self.wind_slider.setTickPosition(QSlider.TicksBelow)
         self.wind_slider.setTickInterval(10)
-        self.wind_slider.valueChanged.connect(lambda v: self.wind_label.setText(f"Vitesse du vent (km/h) : {v} km/h"))
+        self.wind_slider.setSingleStep(5)
+        self.wind_slider.setPageStep(5)
+        self.wind_slider.valueChanged.connect(self.on_slider_value_changed_wind)
         params_layout.addWidget(self.wind_label)
         params_layout.addWidget(self.wind_slider)
 
         # Humidity Slider
-        humidity_label = QLabel("Humidity (%) : 50%")
-        humidity_label.setStyleSheet("color: #718096; font-size: 14px; margin-bottom: 5px; margin-top: 20px;")
-        humidity_slider = QSlider(Qt.Horizontal)
-        humidity_slider.setMinimum(0)
-        humidity_slider.setMaximum(100)
-        humidity_slider.setValue(50)
-        humidity_slider.setTickPosition(QSlider.TicksBelow)
-        humidity_slider.setTickInterval(10)
-        humidity_slider.valueChanged.connect(lambda v: humidity_label.setText(f"Humidité (%) : {v}%"))
-        params_layout.addWidget(humidity_label)
-        params_layout.addWidget(humidity_slider)
+        self.humidity_label = QLabel("Humidity (%): 50%")
+        self.humidity_label.setStyleSheet("color: #718096; font-size: 14px; margin-bottom: 5px; margin-top: 20px;")
+        self.humidity_slider = QSlider(Qt.Horizontal)
+        self.humidity_slider.setMinimum(0)
+        self.humidity_slider.setMaximum(100)
+        self.humidity_slider.setValue(50)
+        self.humidity_slider.setTickPosition(QSlider.TicksBelow)
+        self.humidity_slider.setTickInterval(10)
+        self.humidity_slider.setSingleStep(5)
+        self.humidity_slider.setPageStep(5)
+        self.humidity_slider.valueChanged.connect(self.on_slider_value_changed_humidity)
+        params_layout.addWidget(self.humidity_label)
+        params_layout.addWidget(self.humidity_slider)
 
         spacer_widget = QWidget()
         spacer_widget.setFixedHeight(10)
@@ -624,6 +626,21 @@ class ParametreAcquisitionWindow(QMainWindow):
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
 
+    def on_slider_value_changed_temp(self, value):
+        rounded_value = round(value / 5) * 5
+        self.temp_slider.setValue(rounded_value)
+        self.temp_label.setText(f"Temperature (°C): {rounded_value}°C")
+
+    def on_slider_value_changed_wind(self, value):
+        rounded_value = round(value / 5) * 5
+        self.wind_slider.setValue(rounded_value)
+        self.wind_label.setText(f"Wind speed (km/h): {rounded_value} km/h")
+
+    def on_slider_value_changed_humidity(self, value):
+        rounded_value = round(value / 5) * 5
+        self.humidity_slider.setValue(rounded_value)
+        self.humidity_label.setText(f"Humidity (%): {rounded_value}%")
+        
     def open_home_window(self):
         self.home_window = HomeWindow()
         self.home_window.show()
@@ -798,7 +815,7 @@ class AcquisitionWindow(QMainWindow):
         temperature_widget = QWidget()
         temperature_layout = QHBoxLayout()
 
-        temperature_label = QLabel("Température à l'entrée de la brique :")
+        temperature_label = QLabel("Temperature in the pipe:")
         temperature_label.setStyleSheet("font-size: 16px; color: #2D3748;")
 
         self.current_temperature_label = QLabel(f"{temperature}°C")
@@ -828,7 +845,7 @@ class AcquisitionWindow(QMainWindow):
         charts_layout.setSpacing(10)
         charts_layout.setContentsMargins(10, 20, 10, 25)
 
-        charts_title = QLabel("Graphique de température en temps réel")
+        charts_title = QLabel("Real-time temperature graph")
         charts_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2D3748; margin-bottom: 20px; margin-left: 25px;")
         charts_layout.addWidget(charts_title)
 
@@ -1190,10 +1207,6 @@ class AcquisitionWindowAfterBrick(QMainWindow):
 
         charts_card.setLayout(charts_layout)
         charts_card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-# TODO:
-# affichage de 2 courbes sur les graphes
-# essayer avec des fausses données random
-# voir comment exporter
 
         content_splitter.addWidget(charts_card)
 
