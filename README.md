@@ -59,7 +59,9 @@ python main.py
 
 ## Usage 
 
-Describe here how to use the project in more detail, including any configuration options, input data required, or expected outputs.
+Before anything else, to ensure everything works once the entire setup is in place according to the photos in the attached folder, you need to create a connection share or connect to a Wi‑Fi network by modifying the following three pieces of code: the Application code and the two ESP codes. This is necessary to enter the connection sharing information so that all devices are on the same network, enabling MQTT communication.
+
+You can modify them in the indicated sections of the various codes.
 
 ## Contributing
 
