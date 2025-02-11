@@ -52,8 +52,8 @@ Adafruit_DPS310 dps310; // Capteur DPS310
 Adafruit_TMP117 tmp117; // Capteur TMP117
 
 // Configuration du réseau WiFi
-const char* ssid = "iPhone de Maxime";
-const char* password = "maximemaxime";
+const char* ssid = "nom de votre partage de connexion";
+const char* password = "code de votre partage de connexion";
 
 // Configuration du broker MQTT
 const char* mqtt_server = "172.20.10.2";
