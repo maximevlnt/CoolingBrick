@@ -1,7 +1,20 @@
 # Perforated Clay Brick for Air Cooling through Evaporation
 
-This project involves the characterization and test bench setup of a perforated clay brick designed to cool air by evaporating moisture. The goal is to test and analyze the performance of the brick under different conditions.
+## Project Overview
 
+![Project Image](./Medias/Testbench.png)
+
+This Git repository contains the files and documentation for our 5ISS project: the creation of a test bench for the characterization of a cooling brick. 
+
+### Contents of this repository:
+- 📂 [**Application Code**](./CodeESPArduino) - The software running on our test bench.
+- 📂 [**Virtual Environment Parameters**](./venv) - A folder containing the configuration for our virtual environment.
+- 📄 [**Project Report**](./Report_Projet.pdf) - The complete documentation of our project.
+- 📄 [**Materials and Costs**](./MaterialsDetails.md) - A file detailing the materials used and their prices.
+- 📄 [**Use Case Scenarios**](./UsageScenarios.md) - A file describing the potential applications of the cooling brick.
+- 📂 [**Images**](./Medias) - A folder containing all relevant project images.
+
+---
 ## Prerequisites
 
 Before you start, ensure you have the following installed on your machine:
