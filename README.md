@@ -80,8 +80,5 @@ You can modify them in the indicated sections of the various codes.
 
 If you'd like to contribute to this project, please fork the repository, make your changes, and submit a pull request.
 
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 
 
